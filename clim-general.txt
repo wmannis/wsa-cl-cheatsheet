@@ -1,0 +1,9 @@
+# Fonts
+
+:text-style (make-text-style :serif :roman :normal)
+  :fix :serif :sans-serif nil
+  :roman :bold :italic (:bold :italic) nil
+  :normal :tiny :very-small :small :large :very-large :huge
+     :smaller :larger nil
+
+  Use NIL for default.
