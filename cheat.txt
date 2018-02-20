@@ -75,6 +75,10 @@ Print an instance:
     (print-unreadable-object (var stream :type t :identity t)
       (format stream "..." things)))
 
+  (defmethod describe-object :after ((var class) stream)
+    (with-slots (a b) var    ; this can say a lot more useful stuff than just
+      (format stream ...)))  ; print slots: protocols, computed slots, etc.
+
 (defgeneric name method-lambda-list
   (:documentation string)
   (:argument-precedence-order argument+)
