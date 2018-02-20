@@ -1,0 +1,59 @@
+Like all layout engines, this can get hinky fast.
+
+  (:layouts
+    (default
+      (vertically ()
+        pane-1 ... pane-n))
+
+The argument to :layouts is an alist, so you can name alternate
+layouts and grab them later.  (FRAME-CURRENT-LAYOUT frame) gets the
+current layout, and is SETF-able.  Setting this is highly disruptive,
+effectively starting over from RUN-FRAME-TOP-LEVEL.  Contents of
+several pane types seem to be preserved, though.
+
+    (define-app-command (com-swap :name t :menu t) ()
+      (case (frame-current-layout *application-frame*)
+        (default (setf (frame-current-layout *application-frame*) 'alternate))
+        (alternate (setf (frame-current-layout *application-frame*) 'default))
+        (t (error "I couldn't cope"))))
+
+Organization is handled by mixing and matching with these two macros:
+
+    (horizontally (:spacing n) pane-1 ... pane-2)
+    (vertically (:spacing n) pane-1 ... pane-2)
+
+In HORIZONTALLY and VERTICALLY the pane may instead be a list, the
+first element is *either* a number from 0-1 (percentage) or greater
+than one (screen units) to specify the size a pane gets:
+
+   (vertically ()
+     (3/4 application)
+     (1/4 interactor))
+
+They may be combined:
+
+    (horizontally ()
+      (vertically ()
+        pane-1 pane-2)
+      pane-3)
+
+In addition to :spacing, other pane initargs may be passed to these
+two macros (:foreground, etc.)
+
+The panes, HORIZONTALLY, and VERTICALLY may be annotated with
+additional information.
+
+  (spacing (:thickness n :background ink) pane)
+  (outlining (:thickness n) pane)
+  (scrolling (:scrollbar { t | :vertical | :horizontal }) pane)
+
+  (labelling
+    (:label "string"
+     :align-x { :left :center :right }
+     :label-alignment { :top :bottom }
+     :background B :foreground F   ; only changes label area
+     :text-style (make-text-style :sans-serf :roman :normal))
+    pane)
+
+The options :EQUALIZE-WIDTH {t | nil} and :EQUALIZE-HEIGHT are useful
+when producing menus and the like.
