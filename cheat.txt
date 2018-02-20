@@ -1,9 +1,9 @@
-                   Common Lisp Exotica Aide Memoire
+                       Common Lisp Aide Memoire
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-** Declarations
-  (declare
+# Declarations
+
+(declare
     (dynamic-extent [[var* | (function fn)*]])
     (ignore [[var* | (function fn)*]])  - will not occur
     (ignorable [[var* | (function fn)*]])  - might not occur
@@ -24,9 +24,11 @@
 
    Performance: use SLOT-VALUE with known slot names (accessors are generics)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-** Type Specifiers: there are a zillion, compound and simple.
-  (integer|float|double-float|long-float [lower-limit [upper-limit]])
+
+# Type Specifiers
+There are a zillion, compound and simple.
+
+(integer|float|double-float|long-float [lower-limit [upper-limit]])
   (unsigned-byte [size])
   number
   atom == (not cons)
@@ -42,13 +44,11 @@
 
   Warning: array/vector literals are general arrays, i.e., element type T
 
-  DEFTYPE: ASSERT on steroids
+  DEFTYPE: ASSERT on steroids when SAFETY is high; otherwise is
+    documentation.
 
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-*** CLOSages
-
+# CLOSages
 (defclass class-name ($superclass*)
   ((slot-name
      :reader $reader-name 
@@ -89,8 +89,7 @@ EQL specifier:
     ...)
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; IO
+# IO
 
 (with-open-file (stream-handle $pathname
                     :direction { :input :output :io :probe }
@@ -111,9 +110,11 @@ EQL specifier:
   )
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-** FORMAT directives and recipes (can use stream or string w/ fill ptr)
-           (FORMAT T/NIL "format" ...)  ; T = stdout, NIL = string;
+
+# FORMAT directives and recipes
+(can use stream or string w/ fill ptr)
+  (FORMAT T/NIL "format" ...)  ; T = stdout, NIL = string;
+
   ~A  "aesthetic" - good for interpolation
   ~S  READable
      ~:A, ~:S  - () prints as NIL
@@ -185,9 +186,7 @@ High Trickery:
      alter *print-right-margin* (default 72-ish) to change fill column
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-** LOOP
-
+# LOOP
   (loop for|as
      item in list [ by #'cddr ]
      (a b) in '((1 2) (3 3) (5 6))   ; destructuring
@@ -215,10 +214,20 @@ High Trickery:
        ;; fixnum | float | t | nil
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-** Style and Good Sense
+# Conditions
+(define-condition way-too-big (error)
+  ((message
+    :initarg :message
+    :reader message))   ; or :accessor
+  (:report (lambda (condition stream)
+             (format stream "whatever: ~A" (message condition)))))
 
-prefer DEFPARAMETER (resets on reload; DEFVAR perseverates)
+  (error 'way-too-big :message "etc., etc.")
+
+
+# Style and Good Sense
+
+DEFPARAMETER resets on reload; DEFVAR value perseverates
 
 VERB-OBJECT not OBJECT-VERB  (delete-file, not file-delete)
 
