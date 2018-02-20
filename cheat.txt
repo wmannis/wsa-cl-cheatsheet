@@ -1,0 +1,232 @@
+                   Common Lisp Exotica Aide Memoire
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+** Declarations
+  (declare
+    (dynamic-extent [[var* | (function fn)*]])
+    (ignore [[var* | (function fn)*]])  - will not occur
+    (ignorable [[var* | (function fn)*]])  - might not occur
+    ([not]inline fn-name*)
+    (optimize { quality | (quality value)}*)
+        quality = compilation-speed, debug, safety, speed, space
+        value = 0, 1, 2, 3  (0 = ignore)
+    (special var*)
+    (type $typespec $var*))
+   DECLARE must not follow any expression but other declarations or
+     documentation strings; usable in DEFUN, DEFMACR, DEFGENERIC,
+     DEFMETHOD, DO, DOLIST, DOTIMES, FLET, LABELS, LET/LET*,
+     WITH-SLOTS, DESTRUCTURING-BIND, (see CLHS on DECLARE for full)
+
+   Style: declare freely to help people reading the code
+   Style: (declare (type (or string null) name)) may be often
+     required; make sure the declaration matches internal predicates
+
+   Performance: use SLOT-VALUE with known slot names (accessors are generics)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+** Type Specifiers: there are a zillion, compound and simple.
+  (integer|float|double-float|long-float [lower-limit [upper-limit]])
+  (unsigned-byte [size])
+  number
+  atom == (not cons)
+  file-stream
+  string-stream
+  hash-table, keyword, [logical-]pathname, character, list, sequence,
+    [standard-]class, [generic-]function
+  (base-string [size]) == (vector base-char [size])
+  (string [size]) == (array $character-type (size))
+  (vector [$type [size]]) == (array $type (size))
+
+  Can join with: and, or, not; wildcard for option is #\*
+
+  Warning: array/vector literals are general arrays, i.e., element type T
+
+  DEFTYPE: ASSERT on steroids
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+*** CLOSages
+
+(defclass class-name ($superclass*)
+  ((slot-name
+     :reader $reader-name 
+     :writer $writer-name 
+     :accessor $accessor-name              ; SETFable - prefer to above
+     :allocation { :instance | :class }    ; instance default
+     :initarg :initarg-name
+     :initform form             ; use (ERROR ...) to require initarg
+     :type type-spec
+     :documentation $string) ...)
+  (:documentation $string)
+  (:metaclass $class-name)
+  (:default-initargs . initarg-list))     ; tricksy scoping fun - see CLHS
+
+  Style - use :TYPE as documentation.
+
+Initialize an instance:
+  (defmethod initialize-instance :after ((var class) &key &allow-other-keys)
+     ...)
+  Or: (var class) &rest initargs 
+
+Print an instance:
+  (defmethod print-object ((var class) stream)
+    (print-unreadable-object (var stream :type t :identity t)
+      (format stream "..." things)))
+
+(defgeneric name method-lambda-list
+  (:documentation string)
+  (:argument-precedence-order argument+)
+  (:method-combindation combination combination-argument*)
+  (:method name [ qualifier ] lambda-list decl doc body)* )
+
+  method combination: + AND OR APPEND LIST MAX MIN NCONC PROGN STANDARD
+    requires: (defmethod $method $combination $lambda-list ...)
+
+EQL specifier:
+  (defmethod name ((a string) (b (eql :frobnicate)) c)
+    ...)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; IO
+
+(with-open-file (stream-handle $pathname
+                    :direction { :input :output :io :probe }
+                        :io - bidrectional
+                        :probe - open then immediately closes
+                    :if-exists { :error :new-version :rename
+                                 :rename-and-delete :overwrite
+                                 :append :supersede }
+                    :if-does-not-exist { :error :create } )
+   ,@body)
+
+(finish-output &optional stream)   ; flush
+(with-input-from-string (var string &key index start end) )
+(with-output-to-string (var &optional string-form)
+  ;; if string given, should be adjustable array w/ fill pointer,
+  ;; base-char or related :element-type, will be appended to as if by
+  ;; vector-push-extend 
+  )
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+** FORMAT directives and recipes (can use stream or string w/ fill ptr)
+           (FORMAT T/NIL "format" ...)  ; T = stdout, NIL = string;
+  ~A  "aesthetic" - good for interpolation
+  ~S  READable
+     ~:A, ~:S  - () prints as NIL
+  ~%  newline
+  ~&  fresh line (only new if needed)
+     ~5% ~5&   several newlines
+  ~C  character
+     ~:C  - gives name to nonprinting characters
+     ~@C  - in character literal format, #\a
+     ~:@C  - explains key-chord; unlikely to be portable
+  ~P  emits #\s unless arg=1
+     ~:P  ditto, reprocessing previous argument
+          (format nil "~R file~:p" 5)
+     ~@P  -y or -ies
+     ~:@P  -y or -ies, reprocessing
+  ~T  "tabulate" but good for simple indentation
+     ~vT  useful for recursive indentation via special variable, and
+          combines sensibly with ~<
+
+Numbers:
+  ~$  cash, ~5$ (= ~,5F) - 5 decimal places
+  ~D  ints
+     ~:D  with commas by 3s  ("~:d" 1000000) => 1,000,000
+     ~@D  with + sign
+     ~12D  left padding
+     ~12,'0D   left padding with char #\0 as fill
+  ~X, ~O, ~B  hex, octal, binary
+  ~R  radix, ~16R = ~X
+     just ~R = as words
+     ~:R  ordinal
+     ~@R  Roman
+     ~:@R  old Roman  (4 = IIII)
+  ~F  floats
+  ~E  in scientific notation
+     ~,4F = ~4$
+     ~@E  include plus sign
+
+High Trickery:
+  Modifiers #\@, #\: but also:
+     v  eats argument and substitutes
+        (format t "~v$" 3 pi) =>  3.142
+     #  number of remaining format arguments; see ~#[
+  ~( ... ~)  all parts of internal string downcased
+     ~@(     capitalize first word only
+     ~:(     capitalize all words
+     ~:@(    upcase entire
+        use with other formats: "~(~A~)"
+  ~[ ... ~; ... ~; ... ~]  conditional formatting
+     default - use format arg as index into ~; separated selection
+       list: (format nil "~[zero~;one~;two~] N)
+       returns "" if N too large
+     ~:;  in last clause, for overflow
+             (format nil "~[zero~;one~;two~:;many~] N)
+     ~#[ ... ~]  selects item based on number of args
+     ~:[ ... ~]  only two clauses, first if arg is NIL, second
+       otherwise: (format t "~:[FAIL~;pass~]" test-result)
+       either clause can be empty, but ~; must appear
+     ~@[x = ~a ~]  single argument; if arg non-NIL it is pushed back
+        onto the stack to be read by contained format
+  ~{ ... ~}  iteration over lists
+     default: list argument, (format nil "~{~a, ~}" (list 1 2 3)) "1, 2, 3, "
+     ~^  within ~{ short-circuits immediately to end of ~} if list
+       empty: (format nil "~{~a~^, ~}" (list 1 2 3)) => "1, 2, 3"
+     ~@{  &rest of arg list as list (format nil "~@{...~}" 1 2 3 4 5)
+     ~:{  list of sublists: (format nil "Pairs:~:{ <~S,~S>~}." 
+                                             '((a 1) (b 2) (c 3))) 
+  ~< ... ~:@>   paragraph-fill of whatever happens inside
+     ~@<  as for ~@{, &rest of arg list as list
+     alter *print-right-margin* (default 72-ish) to change fill column
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+** LOOP
+
+  (loop for|as
+     item in list [ by #'cddr ]
+     (a b) in '((1 2) (3 3) (5 6))   ; destructuring
+     x on list                  ; over cons cells, starting with full
+     x across vector|string
+     var being the hash-keys|hash-values in hash|package
+     i from 0 to|upto N         ; include N
+     i from 0 below N           ; exclude N
+     i from N downto 0 by -1    ; include 0
+     i from N above 0 by -1     ; exclude 0
+     with var [ = value-form ]  ; initialize local
+       with var = 1 and var2 = 3
+     collect|append|nconc|count|sum|maxmimize|minimize $form [ into $var ]
+       ;; all have -ing variants, collecting, appending, etc.
+     finally (form)     ; usually: finally (RETURN ...)
+     do (print i)
+     when (evenp i) sum i
+     when (gethash key some-hash) collect it 
+     while|until (test) do (something)  )
+
+  Types may be declared after the variable name:
+     (loop for i of-type (integer 0 10) from 0 below 10 collecting i)
+     (loop for i of-type integer from 0 below 10 collecting i)
+     (loop for i fixnum from 0 below 10 collecting i)
+       ;; fixnum | float | t | nil
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+** Style and Good Sense
+
+prefer DEFPARAMETER (resets on reload; DEFVAR perseverates)
+
+VERB-OBJECT not OBJECT-VERB  (delete-file, not file-delete)
+
+Use PREVIOUS or FINAL rather than LAST.
+
+Consider #.(format ...) for multi-line strings that mess up code layout.
+
+Be reasonable with designators: (1) don't flout CL's standard set
+(esp. wrt. stream designators), (2) consider doing sensible coercion
+in new types/classes.
+
